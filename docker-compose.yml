@@ -24,6 +24,14 @@ services:
       - "127.0.0.1:2375:2375"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      # /_ping goes through the proxy to the Docker daemon, so this checks both.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
     logging: *default-logging
     deploy:
       resources:
@@ -44,7 +52,7 @@ services:
     network_mode: host
     depends_on:
       socket-proxy:
-        condition: service_started
+        condition: service_healthy
     tmpfs:
       - /tmp
     cap_drop:
