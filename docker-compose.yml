@@ -155,6 +155,7 @@ services:
       - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:?TRAEFIK_DASHBOARD_AUTH is required}"
       # Strict path policy for routers that need no encoded characters
       - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedslash=false"
+      - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedpercent=false"
       # Placeholder: a host-network container has no ports for the Docker provider
       # to discover, so this keeps it from erroring. The router uses api@internal.
       - "traefik.http.services.traefik.loadbalancer.server.port=1080"
