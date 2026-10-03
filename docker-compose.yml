@@ -1,0 +1,159 @@
+name: traefik
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+    compress: "true"
+
+services:
+  # Read-only gateway to the Docker API, so the internet-facing Traefik
+  # container never touches the raw socket.
+  socket-proxy:
+    image: ${SOCKET_PROXY_REPOSITORY:-tecnativa/docker-socket-proxy}:${SOCKET_PROXY_TAG:-v0.5.0}
+    container_name: traefik-socket-proxy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Only container listing/inspection + events. POST, EXEC, VOLUMES etc. stay denied.
+      CONTAINERS: "1"
+      LOG_LEVEL: warning
+    ports:
+      - "127.0.0.1:2375:2375"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          # noinspection ComposeUnknownValues
+          cpus: "0.25"
+          # noinspection ComposeUnknownValues
+          memory: "64M"
+          # noinspection ComposeUnknownValues
+          pids: 100
+
+  traefik:
+    image: traefik:${TRAEFIK_TAG:-v3.7.13}
+    container_name: traefik
+    restart: unless-stopped
+    # Host networking: preserves real client IPs (incl. IPv6) and lets Traefik
+    # reach services bound to 127.0.0.1 on the host, such as Portainer.
+    network_mode: host
+    depends_on:
+      socket-proxy:
+        condition: service_started
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    command:
+      # Global
+      - "--global.checkNewVersion=false"
+      - "--global.sendAnonymousUsage=false"
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+      # API & health (internal entrypoint, localhost only)
+      - "--api=true"
+      - "--ping=true"
+      - "--entrypoints.traefik.address=127.0.0.1:1080"
+      # Providers
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=tcp://127.0.0.1:2375"
+      - "--providers.docker.exposedByDefault=false"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.tcp50000.address=:50000"
+      # Wildcard cert as the default for every router on websecure —
+      # services no longer need their own tls/certresolver labels.
+      - "--entrypoints.websecure.http.tls.certresolver=cloudflare"
+      - "--entrypoints.websecure.http.tls.domains[0].main=${DOMAIN:?DOMAIN is required}"
+      - "--entrypoints.websecure.http.tls.domains[0].sans=*.${DOMAIN}"
+      # Timeouts: 0 = unlimited, which allows huge uploads/long streams but also
+      # slow-client (Slowloris) attacks. Prefer a large finite value if you can.
+      - "--entrypoints.websecure.transport.respondingTimeouts.readTimeout=${TRAEFIK_READ_TIMEOUT:-600}"
+      - "--entrypoints.websecure.transport.respondingTimeouts.writeTimeout=${TRAEFIK_WRITE_TIMEOUT:-600}"
+      - "--entrypoints.websecure.transport.respondingTimeouts.idleTimeout=600s"
+      # Request hardening (v3.7.12+): drop headers like X_Auth_User / X.Auth.User that
+      # CGI/PHP/NGINX-style backends would read as X-Auth-User (header spoofing).
+      - "--entrypoints.web.http.aliasHeadersStrategy=delete"
+      - "--entrypoints.websecure.http.aliasHeadersStrategy=delete"
+      - "--entrypoints.tcp50000.http.aliasHeadersStrategy=delete"
+      - "--entrypoints.traefik.http.aliasHeadersStrategy=delete"
+      # Encoded characters in the request path: all rejected (400 Bad Request).
+      # If a backend breaks (e.g. registries, WebDAV, Git APIs, file managers),
+      # re-allow only the character it needs, ideally per-router with the
+      # EncodedCharacters middleware rather than here on the whole entrypoint.
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedNullCharacter=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedBackSlash=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedSemicolon=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedSlash=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedPercent=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedQuestionMark=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedHash=false"
+      # Fail closed when two routers serve the same host with different TLS options (v3.7.11+)
+      - "--core.strictTLSOptions=true"
+      # Certificates
+      - "--certificatesresolvers.cloudflare.acme.email=${ACME_EMAIL:?ACME_EMAIL is required}"
+      - "--certificatesresolvers.cloudflare.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53"
+      # Logs
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+    environment:
+      TZ: "${TZ:-Europe/Athens}"
+      CF_DNS_API_TOKEN_FILE: /run/secrets/cf_dns_api_token
+    extra_hosts:
+      - "portainer:127.0.0.1"
+    volumes:
+      - letsencrypt:/letsencrypt
+    secrets:
+      - cf_dns_api_token
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping", "--entrypoints.traefik.address=127.0.0.1:1080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          # noinspection ComposeUnknownValues
+          cpus: "${TRAEFIK_CPU_LIMIT:-1}"
+          # noinspection ComposeUnknownValues
+          memory: "${TRAEFIK_MEM_LIMIT:-128M}"
+          # noinspection ComposeUnknownValues
+          pids: ${TRAEFIK_PIDS_LIMIT:-200}
+        reservations:
+          # noinspection ComposeUnknownValues
+          memory: "${TRAEFIK_MEM_RESERVATION:-64M}"
+    labels:
+      - "traefik.enable=true"
+      # Dashboard router (TLS comes from the websecure entrypoint defaults)
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:?TRAEFIK_DASHBOARD_AUTH is required}"
+      # Placeholder: a host-network container has no ports for the Docker provider
+      # to discover, so this keeps it from erroring. The router uses api@internal.
+      - "traefik.http.services.traefik.loadbalancer.server.port=1080"
+
+volumes:
+  letsencrypt:
+    name: traefik_letsencrypt
+
+secrets:
+  cf_dns_api_token:
+    environment: CF_DNS_API_TOKEN
