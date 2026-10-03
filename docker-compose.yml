@@ -160,6 +160,10 @@ services:
       # to discover, so this keeps it from erroring. The router uses api@internal.
       - "traefik.http.services.traefik.loadbalancer.server.port=1080"
 
+networks:
+  default:
+    name: traefik
+
 volumes:
   letsencrypt:
     name: traefik_letsencrypt
