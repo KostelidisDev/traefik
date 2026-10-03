@@ -166,7 +166,7 @@ networks:
 
 volumes:
   letsencrypt:
-    name: traefik_letsencrypt
+    name: traefik-letsencrypt
 
 secrets:
   cf_dns_api_token:
