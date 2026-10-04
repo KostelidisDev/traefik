@@ -98,14 +98,15 @@ services:
       - "--entrypoints.traefik.http.aliasHeadersStrategy=delete"
       # Encoded characters: the entry point is the outer limit (checked before
       # routing). Slash and percent are allowed here, so applications like Jenkins can use them;
+      # Semicolon, question mark and hash allowed here, so applications like NextCloud can use them;
       # each router sets its own policy via an EncodedCharacters middleware.
       - "--entrypoints.websecure.http.encodedCharacters.allowEncodedNullCharacter=false"
       - "--entrypoints.websecure.http.encodedCharacters.allowEncodedBackSlash=false"
-      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedSemicolon=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedSemicolon=true"
       - "--entrypoints.websecure.http.encodedCharacters.allowEncodedSlash=true"
       - "--entrypoints.websecure.http.encodedCharacters.allowEncodedPercent=true"
-      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedQuestionMark=false"
-      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedHash=false"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedQuestionMark=true"
+      - "--entrypoints.websecure.http.encodedCharacters.allowEncodedHash=true"
       # Fail closed when two routers serve the same host with different TLS options (v3.7.11+)
       - "--core.strictTLSOptions=true"
       # Certificates
@@ -153,9 +154,15 @@ services:
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.routers.traefik.middlewares=traefik-auth,strict-path"
       - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:?TRAEFIK_DASHBOARD_AUTH is required}"
-      # Strict path policy for routers that need no encoded characters
+      # Strict path policy for routers that need no encoded characters.
+      # Rejects everything the entrypoint allows (the entrypoint blocks only null and backslash).
       - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedslash=false"
       - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedpercent=false"
+      - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodednullcharacter=false"
+      - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedbackslash=false"
+      - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedsemicolon=false"
+      - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedquestionmark=false"
+      - "traefik.http.middlewares.strict-path.encodedcharacters.allowencodedhash=false"
       # Placeholder: a host-network container has no ports for the Docker provider
       # to discover, so this keeps it from erroring. The router uses api@internal.
       - "traefik.http.services.traefik.loadbalancer.server.port=1080"
