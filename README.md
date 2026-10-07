@@ -75,6 +75,10 @@ Optional overrides in `.env`:
 | `TRAEFIK_MEM_LIMIT`       | `128M`                           | Memory limit.                                  |
 | `TRAEFIK_MEM_RESERVATION` | `64M`                            | Memory reservation.                            |
 | `TRAEFIK_PIDS_LIMIT`      | `200`                            | PID limit.                                     |
+| `TRAEFIK_NETWORK_SUBNET_V4` | `10.100.0.0/24`                  | IPv4 subnet of the `traefik` network.          |
+| `TRAEFIK_NETWORK_SUBNET_V6` | `fd00:100::/64`                  | IPv6 subnet of the `traefik` network.          |
+
+> **Network:** The `traefik` Docker network is dual-stack (IPv4 + IPv6). Pick subnets that don't overlap your LAN or other Docker networks. Docker can't change an existing network's subnets, so after changing them (or when upgrading from an IPv4-only network), run `docker compose down` and then `docker compose up -d` to recreate it. Disconnect containers from other stacks first.
 
 > **Timeouts:** A request (read) or response (write) taking longer than 10 minutes is cut off. Raise the value if you serve very large uploads or long-lived streams. Avoid `0` (unlimited): it leaves the proxy open to slow-client (Slowloris) attacks.
 

@@ -184,6 +184,11 @@ configs:
 networks:
   default:
     name: traefik
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: "${TRAEFIK_NETWORK_SUBNET_V4:-10.100.0.0/24}"
+        - subnet: "${TRAEFIK_NETWORK_SUBNET_V6:-fd00:100::/64}"
 
 volumes:
   letsencrypt:
