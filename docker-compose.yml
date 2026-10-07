@@ -48,7 +48,7 @@ services:
     container_name: traefik
     restart: unless-stopped
     # Host networking: preserves real client IPs (incl. IPv6) and lets Traefik
-    # reach services bound to 127.0.0.1 on the host, such as Portainer.
+    # reach services bound to 127.0.0.1 on the host.
     network_mode: host
     depends_on:
       socket-proxy:
@@ -123,8 +123,6 @@ services:
     environment:
       TZ: "${TZ:-Europe/Athens}"
       CF_DNS_API_TOKEN_FILE: /run/secrets/cf-dns-api-token
-    extra_hosts:
-      - "portainer:127.0.0.1"
     volumes:
       - letsencrypt:/letsencrypt
     configs:
