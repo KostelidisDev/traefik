@@ -122,7 +122,7 @@ services:
       - "--accesslog.format=json"
     environment:
       TZ: "${TZ:-Europe/Athens}"
-      CF_DNS_API_TOKEN_FILE: /run/secrets/cf_dns_api_token
+      CF_DNS_API_TOKEN_FILE: /run/secrets/cf-dns-api-token
     extra_hosts:
       - "portainer:127.0.0.1"
     volumes:
@@ -131,7 +131,7 @@ services:
       - source: traefik-middlewares
         target: /etc/traefik/dynamic/middlewares.yml
     secrets:
-      - cf_dns_api_token
+      - cf-dns-api-token
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping", "--entrypoints.traefik.address=127.0.0.1:1080"]
       interval: 30s
@@ -192,5 +192,5 @@ volumes:
     name: traefik-letsencrypt
 
 secrets:
-  cf_dns_api_token:
+  cf-dns-api-token:
     environment: CF_DNS_API_TOKEN
