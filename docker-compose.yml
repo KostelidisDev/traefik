@@ -63,7 +63,7 @@ services:
       - no-new-privileges:true
     command:
       # Global
-      - "--global.checkNewVersion=false"
+      - "--global.checkNewVersion=true"
       - "--global.sendAnonymousUsage=false"
       - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
       # API & health (internal entrypoint, localhost only)
