@@ -44,7 +44,7 @@ services:
           pids: 100
 
   traefik:
-    image: traefik:v3.7.16
+    image: traefik:v3.7.18
     container_name: traefik
     restart: unless-stopped
     # Host networking: preserves real client IPs (incl. IPv6) and lets Traefik
