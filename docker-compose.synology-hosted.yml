@@ -1,0 +1,7 @@
+services:
+  socket-proxy:
+    healthcheck:
+      start_interval: !reset null
+  traefik:
+    healthcheck:
+      start_interval: !reset null
